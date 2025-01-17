@@ -1,6 +1,8 @@
+require('dotenv').config()
 const express = require('express')
 const morgan = require('morgan')
 const cors = require('cors')
+const PhonebookEntry = require('./models/phonebook')
 const app = express()
 app.use(express.json())
 app.use(cors())
@@ -42,16 +44,21 @@ let numbers = [
 ]
 
 app.get('/api/info', (request, response) => {
-  response.send(
-    `The phonebook has info for ${numbers.length} people 
-    <br/>
-    <br/>
-     ${new Date()}.
-     `)
+    PhonebookEntry.find({}).then(result => { 
+      let numberOfEntries = result.length 
+      response.send(
+        `The phonebook has info for ${numberOfEntries} people 
+        <br/>
+        <br/>
+        ${new Date()}.
+        `)
+    })
 })
 
 app.get('/api/persons', (request, response) => {
-  response.json(numbers)
+  PhonebookEntry.find({}).then(result => { 
+    response.json(result)
+  })
 })
 
 app.get('/api/persons/:id', (request, response) => {
@@ -74,14 +81,14 @@ app.delete('/api/persons/:id', (request, response) => {
 app.post('/api/persons/', (request, response) => {
   const body = request.body
 
-  const number = {
-    "id": generateId(),
-    "name": body.name,
-    "number": body.number
-  }
+  const number = new PhonebookEntry({
+    name: body.name,
+    number: body.number
+  })
 
-  numbers = numbers.concat(number)
-  response.json(number)
+  number.save().then( result => { 
+    console.log("Number saved", number)
+  })
 })
 
 const PORT = 3001 
