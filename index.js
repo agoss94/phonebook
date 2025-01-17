@@ -7,41 +7,22 @@ const app = express()
 app.use(express.json())
 app.use(cors())
 app.use(express.static('dist'))
+const errorHandler = (error, request, response, next) => {
+  console.error(error.message)
+
+  if (error.name === 'CastError') { 
+    return response.status(400).send({error: 'malformatted id'})
+  }
+
+  next(error)
+}
+
+app.use(errorHandler)
 
 morgan.token('content', (req, res) => {
   return JSON.stringify(req.body)
 })
 app.use(morgan(':method :url - :response-time :content'))
-
-const generateId = () => {
-    const maxId = numbers.length > 0
-    ? Math.max(...numbers.map(n => Number(n.id)))
-    : 0
-    return String(maxId + 1)
-}
-
-let numbers = [
-    { 
-      "id": "1",
-      "name": "Arto Hellas", 
-      "number": "040-123456"
-    },
-    { 
-      "id": "2",
-      "name": "Ada Lovelace", 
-      "number": "39-44-5323523"
-    },
-    { 
-      "id": "3",
-      "name": "Dan Abramov", 
-      "number": "12-43-234345"
-    },
-    { 
-      "id": "4",
-      "name": "Mary Poppendieck", 
-      "number": "39-23-6423122"
-    }
-]
 
 app.get('/api/info', (request, response) => {
     PhonebookEntry.find({}).then(result => { 
@@ -61,21 +42,24 @@ app.get('/api/persons', (request, response) => {
   })
 })
 
-app.get('/api/persons/:id', (request, response) => {
+app.get('/api/persons/:id', (request, response, next) => {
   const id = request.params.id
-  const number = numbers.find(n => n.id === id)
-  if (number) {
-    response.json(number)
-  } else {
-    response.status(404).end()
-  }
+  PhonebookEntry.findById(id).then(entry => { 
+    if (entry) { 
+      response.json(entry)
+    } else { 
+      response.status(404).end()
+    }
+  }).catch(error => next(error))
 })
 
 
-app.delete('/api/persons/:id', (request, response) => {
+app.delete('/api/persons/:id', (request, response, next) => {
   const id = request.params.id
-  numbers = numbers.filter(number => number.id !== id)
-  response.status(204).end()
+  PhonebookEntry.findByIdAndDelete(id).then(result => { 
+    response.status(204).end()
+  })
+  .catch(error => next(error))
 })
 
 app.post('/api/persons/', (request, response) => {
@@ -89,6 +73,19 @@ app.post('/api/persons/', (request, response) => {
   number.save().then( result => { 
     console.log("Number saved", number)
   })
+})
+
+app.put('/api/persons/:id', (request, response, next) => {
+  const body = request.body
+
+  const entry = { 
+    name : body.name,
+    number : body.number
+  }
+
+  PhonebookEntry.findByIdAndUpdate(request.params.id, entry, {new: true}).then(updatedEntry => { 
+      response.json(updatedEntry)
+  }).catch(error => next(error))
 })
 
 const PORT = 3001 
